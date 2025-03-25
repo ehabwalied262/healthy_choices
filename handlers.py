@@ -1,6 +1,6 @@
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from database import log_message, update_user, get_user_state
-from config import TOPICS
+from advice import TOPICS
 from advice import WELCOME_MESSAGE, USAGE_TEXT, ADVICE
 
 # Handler for /start command
