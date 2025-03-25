@@ -1,0 +1,4 @@
+# List of Python packages required for the bot
+
+pyrogram==2.0.106
+tgcrypto==1.2.5  # Required for faster encryption with Pyrogram
