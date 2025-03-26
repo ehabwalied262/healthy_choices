@@ -1,3 +1,6 @@
+pyrogram==2.0.106
+aiohttp==3.11.14
+psycopg2-binary==2.9.9
 python-dotenv==1.1.0
 setuptools==77.0.3
 wheel==0.45.1
