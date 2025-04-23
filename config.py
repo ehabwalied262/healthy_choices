@@ -15,3 +15,5 @@ API_HASH = os.getenv('API_HASH')
 # Bot token from BotFather on Telegram
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+

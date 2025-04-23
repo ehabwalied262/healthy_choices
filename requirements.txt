@@ -2,3 +2,4 @@ pyrogram==2.0.106
 python-dotenv==1.1.0
 setuptools==77.0.3
 wheel==0.45.1
+TgCrypto==1.2.5

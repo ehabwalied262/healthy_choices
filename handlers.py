@@ -2,6 +2,11 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from database import log_message, update_user, get_user_state
 from advice import TOPICS
 from advice import WELCOME_MESSAGE, USAGE_TEXT, ADVICE
+from pyrogram import Client, filters
+from pyrogram.enums import ChatAction
+import google.generativeai as genai  # Ensure this is imported for Gemini API
+from database import get_request_count, increment_request_count
+import asyncio
 
 # Handler for /start command
 async def handle_start(client, message: Message):
@@ -44,7 +49,99 @@ async def handle_show_topics(client, callback_query):
     # ملاحظة: في handle_topic_selection، هنحذف topics_message و instruction_message باستخدام
     # await client.delete_messages(user_id, [topics_message.id, instruction_message.id])
 
+import asyncio
+from pyrogram import Client, filters
+from pyrogram.enums import ChatAction
+import google.generativeai as genai
+from database import get_request_count, increment_request_count
 
+async def handle_general_message(client, message):
+    # Indicate typing status
+    await client.send_chat_action(message.chat.id, action=ChatAction.TYPING)
+
+    user_message = message.text
+    if not user_message:
+        return
+
+    print(f"Received message from user: {user_message}")
+    user_id = message.from_user.id
+
+    try:
+        # Send immediate friendly response using gemini-1.5-flash-002
+        quick_model = genai.GenerativeModel('gemini-1.5-flash-002')
+        quick_prompt = (
+            f"رد بجملة قصيرة وودودة باللهجة المصرية تخلي المستخدم يحس إنك مهتم بسؤاله وهتفكر فيه، "
+            f"وخلي الرد مختلف عن كل مرة بناءً على السؤال: '{user_message}'"
+        )
+        quick_response = quick_model.generate_content(quick_prompt).text
+        await message.reply_text(quick_response)
+        print(f"Sent quick response to user {user_id}: {quick_response}")
+
+        # Check medical terms
+        medical_terms = ["مريض سكر", "diabetes", "ضغط", "hypertension", "قلب", "heart"]
+        is_medical = any(term in user_message.lower() for term in medical_terms)
+
+        # Choose model based on request count
+        request_count = get_request_count()
+        model_name = 'gemini-1.5-pro-002' if request_count < 48 else 'gemini-2.5-flash'
+        print(f"Using model: {model_name}, request count: {request_count}")
+
+        try:
+            # Try primary model
+            model = genai.GenerativeModel(model_name)
+            main_prompt = (
+                f"رد على السؤال ده: '{user_message}' باللهجة المصرية الودودة. "
+                f"خلي الرد واضح ومفيد ويعبر عن اهتمامك بالمستخدم. "
+                f"لو السؤال طبي (زي عن السكر أو الضغط)، أضف تحذير إنك مش دكتور وإنه لازم يستشير دكتور مختص، "
+                f"واقترح خيارات زي نظام غذائي صحي، فطار مناسب، أو أسئلة لتخصيص النصايح."
+            )
+            response = await asyncio.to_thread(model.generate_content, main_prompt)
+            gemini_response = response.text
+
+            # Add proactive suggestions for medical queries
+            if is_medical:
+                gemini_response += (
+                    "\n\nلو عايز، أقدر أساعدك بكام حاجة زي:\n"
+                    "- اقترحلك أكل صحي يناسب مرضى السكر؟\n"
+                    "- أقولك على فطار لذيذ وصحي؟\n"
+                    "- ولا أسألك كام سؤال عشان أعرف أديلك نصايح مخصصة؟\n"
+                    "قولي إنت عايز إيه وأنا جاهز!"
+                )
+                update_user_state(user_id, "awaiting_medical_choice")
+
+        except Exception as primary_error:
+            print(f"Primary model {model_name} failed: {primary_error}")
+            # Fallback to gemini-1.5-flash-002
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash-002')
+                main_prompt = (
+                    f"رد على السؤال ده: '{user_message}' باللهجة المصرية الودودة. "
+                    f"خلي الرد بسيط ومفيد. لو السؤال طبي، أضف تحذير إنك مش دكتور."
+                )
+                response = await asyncio.to_thread(model.generate_content, main_prompt)
+                gemini_response = response.text
+                print(f"Fallback to gemini-1.5-flash-002 succeeded")
+            except Exception as fallback_error:
+                print(f"Fallback model failed: {fallback_error}")
+                gemini_response = (
+                    "معلش، حصل مشكلة تقنية بس أنا موجود! 😅 "
+                    "جرب اسألني سؤال تاني أو قولي عايز مساعدة في إيه!"
+                )
+
+        # Send the main response
+        await message.reply_text(gemini_response)
+        print(f"Sent Gemini response to user {user_id}: {gemini_response}")
+
+        # Increment request count if using gemini-1.5-pro-002
+        if model_name == 'gemini-1.5-pro-002':
+            increment_request_count()
+
+    except Exception as e:
+        print(f"Error calling Gemini API: {e}")
+        await message.reply_text(
+            "آسف يا نجم، حصل مشكلة صغيرة! 😅 جرب تاني أو قولي عايز إيه بالظبط!"
+        )
+               
 async def handle_topic_selection(client, callback_query):
     user_id = callback_query.from_user.id
     data = callback_query.data

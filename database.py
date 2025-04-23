@@ -1,5 +1,6 @@
 import sqlite3
 from config import DATABASE_NAME
+from datetime import date
 
 def init_db():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -28,6 +29,14 @@ def init_db():
         )
     ''')
     
+    conn.commit()
+    conn.close()
+
+def init_requests_db():
+    conn = sqlite3.connect('requests.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS api_requests
+                     (date TEXT PRIMARY KEY, request_count INTEGER)''')
     conn.commit()
     conn.close()
 
@@ -60,3 +69,29 @@ def get_user_state(user_id):
     conn.close()
     
     return result if result else (None, 0, None)
+
+def get_all_users():
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id FROM users')
+    users = [row[0] for row in c.fetchall()]
+    conn.close()
+    return users
+
+def get_request_count():
+    today = str(date.today())
+    conn = sqlite3.connect('requests.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT request_count FROM api_requests WHERE date = ?', (today,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else 0
+
+def increment_request_count():
+    today = str(date.today())
+    conn = sqlite3.connect('requests.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT OR REPLACE INTO api_requests (date, request_count) VALUES (?, COALESCE((SELECT request_count FROM api_requests WHERE date = ?), 0) + 1)',
+                  (today, today))
+    conn.commit()
+    conn.close()
