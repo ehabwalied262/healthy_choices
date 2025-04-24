@@ -49,11 +49,6 @@ async def handle_show_topics(client, callback_query):
     # ملاحظة: في handle_topic_selection، هنحذف topics_message و instruction_message باستخدام
     # await client.delete_messages(user_id, [topics_message.id, instruction_message.id])
 
-import asyncio
-from pyrogram import Client, filters
-from pyrogram.enums import ChatAction
-import google.generativeai as genai
-from database import get_request_count, increment_request_count
 
 async def handle_general_message(client, message):
     # Indicate typing status
