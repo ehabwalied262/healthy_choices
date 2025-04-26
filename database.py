@@ -1,6 +1,7 @@
 import sqlite3
 from config import DATABASE_NAME
 from datetime import date
+import json
 
 def init_db():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -47,28 +48,30 @@ def log_message(user_id, message_text):
     conn.commit()
     conn.close()
 
-def update_user(user_id, username, language='ar', current_topic=None, advice_index=0, intro_index=None):
-    conn = sqlite3.connect(DATABASE_NAME)
+def update_user(user_id, username, **kwargs):
+    # افتح قاعدة البيانات (مثلاً SQLite)
+    conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    
-    # تحديث أو إضافة بيانات المستخدم مع intro_index
-    cursor.execute('''
-        INSERT OR REPLACE INTO users (user_id, username, language, current_topic, advice_index, intro_index)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, language, current_topic, advice_index, intro_index))
-    
+    # إنشاء جدول لو مش موجود
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users
+                   (user_id TEXT PRIMARY KEY, username TEXT, data TEXT)''')
+    # تحويل kwargs لـ JSON عشان يتخزن كـ string
+    data = json.dumps(kwargs)
+    # تحديث بيانات المستخدم
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, data) VALUES (?, ?, ?)",
+                  (str(user_id), username, data))
     conn.commit()
     conn.close()
 
 def get_user_state(user_id):
-    conn = sqlite3.connect(DATABASE_NAME)
+    conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
-    
-    cursor.execute("SELECT current_topic, advice_index, intro_index FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT data FROM users WHERE user_id = ?", (str(user_id),))
     result = cursor.fetchone()
     conn.close()
-    
-    return result if result else (None, 0, None)
+    if result:
+        return json.loads(result[0])  # إرجاع البيانات كـ dictionary
+    return {}
 
 def get_all_users():
     conn = sqlite3.connect(DATABASE_NAME)
